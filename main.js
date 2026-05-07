@@ -210,6 +210,27 @@ class WeddingAuth extends HTMLElement {
                 <input type="text" id="wedding-venue" required placeholder="예: OO웨딩홀">
               </div>
             </div>
+
+            <div class="section-title">추가 정보</div>
+            <div class="form-group">
+              <label>알게 된 경로</label>
+              <select id="referral-source" required>
+                <option value="" disabled selected>선택해주세요</option>
+                <option value="instagram">인스타그램</option>
+                <option value="blog">블로그/카페</option>
+                <option value="friend">지인 추천</option>
+                <option value="search">검색 엔진</option>
+                <option value="other">기타</option>
+              </select>
+            </div>
+
+            <div class="checkbox-group">
+              <input type="checkbox" id="privacy-agree" required>
+              <label for="privacy-agree">
+                (필수) 개인정보 수집 및 이용에 동의합니다. <br>
+                <span style="color: oklch(55% 0.02 340); font-size: 0.75rem;">입력하신 정보는 오직 웨딩 플래닝 서비스 제공을 위해서만 사용됩니다.</span>
+              </label>
+            </div>
           ` : ''}
 
           <button type="submit">${this.isLogin ? '로그인하기' : '회원가입하고 시작하기'}</button>
