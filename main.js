@@ -2,14 +2,14 @@
  * My Wedding Book - Core Logic
  */
 
-// --- Firebase Configuration (Placeholder) ---
+// --- Firebase Configuration ---
 const firebaseConfig = {
-  apiKey: "placeholder-api-key",
-  authDomain: "my-wedding-book.firebaseapp.com",
-  projectId: "my-wedding-book",
-  storageBucket: "my-wedding-book.appspot.com",
-  messagingSenderId: "placeholder",
-  appId: "placeholder"
+  apiKey: "your-actual-api-key", // Firebase 콘솔에서 복사한 API 키를 넣어주세요
+  authDomain: "neww.firebaseapp.com",
+  projectId: "neww",
+  storageBucket: "neww.appspot.com",
+  messagingSenderId: "your-sender-id",
+  appId: "your-app-id"
 };
 
 // Initialize Firebase
@@ -95,6 +95,9 @@ class WeddingAuth extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this.isLogin = true;
+    this.codeSent = false;
+    this.timer = 180; // 3 minutes
+    this.timerInterval = null;
   }
 
   connectedCallback() {
@@ -103,7 +106,44 @@ class WeddingAuth extends HTMLElement {
 
   toggleMode() {
     this.isLogin = !this.isLogin;
+    this.codeSent = false;
+    clearInterval(this.timerInterval);
     this.render();
+  }
+
+  startTimer() {
+    this.timer = 180;
+    clearInterval(this.timerInterval);
+    this.timerInterval = setInterval(() => {
+      this.timer--;
+      if (this.timer <= 0) {
+        clearInterval(this.timerInterval);
+      }
+      this.updateTimerDisplay();
+    }, 1000);
+  }
+
+  updateTimerDisplay() {
+    const timerEl = this.shadowRoot.getElementById('timer');
+    if (timerEl) {
+      const mins = Math.floor(this.timer / 60);
+      const secs = this.timer % 60;
+      timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+
+  async sendVerificationCode() {
+    const email = this.shadowRoot.getElementById('email').value;
+    if (!email || !email.includes('@')) {
+      alert('올바른 이메일 주소를 입력해주세요.');
+      return;
+    }
+    
+    // In a real app, this would call a Cloud Function to send a 6-digit code
+    alert(`${email}로 인증번호가 발송되었습니다! (테스트 번호: 123456)`);
+    this.codeSent = true;
+    this.render();
+    this.startTimer();
   }
 
   async handleSubmit(e) {
@@ -111,13 +151,24 @@ class WeddingAuth extends HTMLElement {
     const email = this.shadowRoot.getElementById('email').value;
     const password = this.shadowRoot.getElementById('password').value;
 
-    if (!this.isLogin) {
+    if (this.isLogin) {
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+      } catch (error) {
+        alert('로그인 실패: ' + error.message);
+      }
+    } else {
+      const code = this.shadowRoot.getElementById('auth-code').value;
       const confirmPassword = this.shadowRoot.getElementById('confirm-password').value;
       
-      // Password Strength Check: 8+ chars and 1+ special char
+      if (code !== '123456') { // Mock verification
+        alert('인증번호가 일치하지 않습니다.');
+        return;
+      }
+
       const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
       if (password.length < 8 || !hasSpecial) {
-        alert('비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.');
+        alert('비밀번호 조건을 확인해주세요.');
         return;
       }
 
@@ -125,20 +176,11 @@ class WeddingAuth extends HTMLElement {
         alert('비밀번호가 일치하지 않습니다.');
         return;
       }
-    }
 
-    try {
-      if (this.isLogin) {
-        await auth.signInWithEmailAndPassword(email, password);
-      } else {
+      try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        // Send actual verification link via Firebase
-        await user.sendEmailVerification();
-        alert('인증 이메일이 발송되었습니다. 메일함을 확인해주세요!');
-
-        // Save profile data
         const profileData = {
           groomName: this.shadowRoot.getElementById('groom-name').value,
           groomBirth: this.shadowRoot.getElementById('groom-birth').value,
@@ -152,15 +194,16 @@ class WeddingAuth extends HTMLElement {
         };
         
         await db.collection('profiles').doc(user.uid).set(profileData);
+        alert('회원가입이 완료되었습니다!');
+      } catch (error) {
+        alert(error.message);
       }
-    } catch (error) {
-      alert(error.message);
     }
   }
 
   handleAdminBypass() {
     const key = prompt('관리자 마스터 키를 입력하세요:');
-    if (key === 'admin123') { // Master Key
+    if (key === 'admin123') {
       localStorage.setItem('adminMode', 'true');
       App.profile = { groomName: '관리자', brideName: '모드', weddingDate: '2026-12-25', weddingVenue: '테스트 베뉴' };
       App.renderView('dashboard');
@@ -183,10 +226,12 @@ class WeddingAuth extends HTMLElement {
         }
         .logo-box { cursor: pointer; user-select: none; margin-bottom: 1.5rem; text-align: center; }
         h2 { font-family: 'Noto Serif KR', serif; text-align: center; color: oklch(25% 0.02 340); margin-bottom: 2rem; }
-        .form-group { text-align: left; margin-bottom: 1rem; }
+        .form-group { text-align: left; margin-bottom: 1.2rem; position: relative; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .section-title { font-weight: 700; font-size: 0.9rem; color: oklch(60% 0.12 340); margin: 1.5rem 0 0.8rem; border-bottom: 1px solid oklch(95% 0.01 340); padding-bottom: 0.4rem; }
-        label { display: block; font-size: 0.85rem; margin-bottom: 0.3rem; color: oklch(55% 0.02 340); }
+        label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; color: oklch(55% 0.02 340); }
+        
+        .input-with-btn { display: flex; gap: 0.5rem; }
         input, select {
           width: 100%;
           padding: 0.75rem;
@@ -195,9 +240,27 @@ class WeddingAuth extends HTMLElement {
           outline: none;
           font-family: inherit;
           background: white;
+          transition: border 0.2s;
         }
-        input:focus, select:focus { border-color: oklch(85% 0.08 340); }
-        .validation-hint { font-size: 0.75rem; margin-top: 0.3rem; color: oklch(55% 0.02 340); }
+        input:focus { border-color: oklch(85% 0.08 340); }
+        
+        .timer { position: absolute; right: 12px; top: 38px; font-size: 0.8rem; color: oklch(60% 0.12 340); font-weight: 600; }
+        
+        .small-btn {
+          padding: 0 1rem;
+          background: oklch(95% 0.03 340);
+          border: 1px solid oklch(85% 0.08 340);
+          border-radius: 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: oklch(60% 0.12 340);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .validation-hint { font-size: 0.75rem; margin-top: 0.4rem; color: oklch(55% 0.02 340); }
+        .validation-hint.success { color: #2ecc71; }
+        .validation-hint.error { color: #e74c3c; }
         
         .checkbox-group {
           display: flex;
@@ -209,7 +272,7 @@ class WeddingAuth extends HTMLElement {
         .checkbox-group input { width: auto; margin-top: 0.2rem; }
         .checkbox-group label { font-size: 0.8rem; line-height: 1.4; color: oklch(25% 0.02 340); }
         
-        button {
+        .submit-btn {
           width: 100%;
           padding: 1rem;
           background: linear-gradient(135deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
@@ -219,6 +282,7 @@ class WeddingAuth extends HTMLElement {
           margin-top: 2rem;
           cursor: pointer;
           border: none;
+          box-shadow: var(--shadow-glow);
         }
         .toggle { margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: oklch(55% 0.02 340); cursor: pointer; }
         .toggle span { color: oklch(60% 0.12 340); font-weight: 600; }
@@ -231,18 +295,31 @@ class WeddingAuth extends HTMLElement {
         <form id="auth-form">
           <div class="form-group">
             <label>이메일 주소</label>
-            <input type="email" id="email" required placeholder="example@email.com">
+            <div class="input-with-btn">
+              <input type="email" id="email" required placeholder="example@email.com">
+              ${!this.isLogin ? `<button type="button" class="small-btn" id="send-code-btn">${this.codeSent ? '재전송' : '인증번호 전송'}</button>` : ''}
+            </div>
           </div>
+
+          ${!this.isLogin && this.codeSent ? `
+            <div class="form-group">
+              <label>인증번호</label>
+              <input type="text" id="auth-code" required placeholder="6자리 번호 입력">
+              <span class="timer" id="timer">3:00</span>
+            </div>
+          ` : ''}
+
           <div class="form-group">
             <label>비밀번호</label>
             <input type="password" id="password" required placeholder="8자 이상, 특수문자 포함">
-            ${!this.isLogin ? '<div class="validation-hint">특수문자(!@#$...)를 1자 이상 포함해주세요.</div>' : ''}
+            ${!this.isLogin ? `<div class="validation-hint" id="pw-hint">특수문자(!@#$...)를 1자 이상 포함해야 합니다.</div>` : ''}
           </div>
 
           ${!this.isLogin ? `
             <div class="form-group">
               <label>비밀번호 확인</label>
               <input type="password" id="confirm-password" required placeholder="비밀번호를 한번 더 입력하세요">
+              <div class="validation-hint" id="pw-confirm-hint"></div>
             </div>
 
             <div class="section-title">신랑 정보</div>
@@ -303,7 +380,7 @@ class WeddingAuth extends HTMLElement {
             </div>
           ` : ''}
 
-          <button type="submit">${this.isLogin ? '로그인하기' : '인증 메일 발송 및 가입'}</button>
+          <button type="submit" class="submit-btn">${this.isLogin ? '로그인하기' : '회원가입 완료'}</button>
         </form>
         <div class="toggle" id="toggle-mode">
           ${this.isLogin ? '계정이 없으신가요? <span>회원가입</span>' : '이미 계정이 있으신가요? <span>로그인</span>'}
@@ -311,9 +388,44 @@ class WeddingAuth extends HTMLElement {
       </div>
     `;
 
+    // Event Listeners
     this.shadowRoot.getElementById('auth-form').addEventListener('submit', (e) => this.handleSubmit(e));
     this.shadowRoot.getElementById('toggle-mode').addEventListener('click', () => this.toggleMode());
     this.shadowRoot.getElementById('logo-bypass').addEventListener('dblclick', () => this.handleAdminBypass());
+    
+    if (!this.isLogin) {
+      this.shadowRoot.getElementById('send-code-btn')?.addEventListener('click', () => this.sendVerificationCode());
+      
+      const pwInput = this.shadowRoot.getElementById('password');
+      const pwConfirmInput = this.shadowRoot.getElementById('confirm-password');
+      
+      pwInput.addEventListener('input', () => {
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pwInput.value);
+        const hint = this.shadowRoot.getElementById('pw-hint');
+        if (pwInput.value.length >= 8 && hasSpecial) {
+          hint.textContent = '사용 가능한 비밀번호입니다.';
+          hint.className = 'validation-hint success';
+        } else {
+          hint.textContent = '8자 이상, 특수문자 포함이 필요합니다.';
+          hint.className = 'validation-hint error';
+        }
+      });
+
+      pwConfirmInput.addEventListener('input', () => {
+        const hint = this.shadowRoot.getElementById('pw-confirm-hint');
+        if (pwInput.value === pwConfirmInput.value) {
+          hint.textContent = '비밀번호가 일치합니다.';
+          hint.className = 'validation-hint success';
+        } else {
+          hint.textContent = '비밀번호가 일치하지 않습니다.';
+          hint.className = 'validation-hint error';
+        }
+      });
+    }
+
+    if (this.codeSent) {
+      this.updateTimerDisplay();
+    }
   }
 }
 customElements.define('wedding-auth', WeddingAuth);
