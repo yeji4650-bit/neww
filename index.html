@@ -10,12 +10,22 @@
 </head>
 <body>
   
-  <wedding-nav></wedding-nav>
+  <div id="loading-screen" class="flex align-center justify-center" style="position: fixed; inset: 0; background: var(--bg-color); z-index: 2000;">
+    <div class="serif" style="font-size: 1.5rem; color: var(--accent-color); animation: pulse 1.5s infinite;">My Wedding Book...</div>
+  </div>
+
+  <wedding-nav id="main-nav" style="display: none;"></wedding-nav>
 
   <main id="app-root" class="container fade-in">
-    <!-- Initial Dashboard View -->
-    <wedding-dashboard></wedding-dashboard>
+    <!-- Views will be injected here -->
   </main>
+
+  <style>
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+  </style>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>

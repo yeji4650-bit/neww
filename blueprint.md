@@ -11,6 +11,8 @@
 - **Interactivity**: Smooth animations, mobile-responsive layouts, and tactile UI elements.
 
 ### Features
+- **Firebase Authentication**: Secure login and signup for couples.
+- **User Onboarding**: Collect wedding details (names, wedding date, venue) during signup.
 - **Modern Dashboard**: Visual overview of wedding progress and quick access to modules.
 - **D-day Countdown**: Real-time tracking of days remaining until the wedding.
 - **Wedding Checklist**: Customizable list of tasks with status tracking.
@@ -22,18 +24,21 @@
 - **Typography**: Elegant Serif fonts for headings, clean Sans-serif for body text.
 - **Visual Effects**: Multi-layered soft shadows, subtle noise textures, and elegant transitions.
 
-## Current Plan: Phase 1 - Foundation & Dashboard
+## Current Plan: Phase 1 - Authentication & Dashboard
 1. **Foundation & Global Styles**:
     - [x] Configure `.idx/mcp.json` for Firebase MCP.
     - [x] Define global CSS variables (colors, spacing, shadows).
     - [x] Set up basic app layout in `index.html`.
 2. **Firebase Integration**:
     - [x] Initialize Firebase SDK in `main.js`.
-    - [ ] Create basic Firestore schema for tasks and expenses.
-3. **Web Components - Dashboard**:
+    - [ ] Set up Firebase Auth and Firestore listeners.
+3. **Web Components - Auth & Onboarding**:
+    - [ ] Implement `<wedding-auth>` (Login/Signup).
+    - [ ] Implement `<wedding-onboarding>` (Profile setup: Names, Date, Venue).
+4. **Web Components - Dashboard**:
     - [x] Implement `<wedding-nav>` component.
     - [x] Implement `<wedding-dashboard>` component.
     - [x] Implement D-day Countdown logic and UI.
-    - [ ] Create summary cards for Checklist and Budget.
-4. **Initial Shells**:
+    - [ ] Connect dashboard to Firestore user profile.
+5. **Initial Shells**:
     - [ ] Create placeholders for Checklist, Budget, and Gallery.

@@ -3,7 +3,6 @@
  */
 
 // --- Firebase Configuration (Placeholder) ---
-// Note: In a real app, these would be provided by the environment.
 const firebaseConfig = {
   apiKey: "placeholder-api-key",
   authDomain: "my-wedding-book.firebaseapp.com",
@@ -13,15 +12,257 @@ const firebaseConfig = {
   appId: "placeholder"
 };
 
-// Initialize Firebase (wrapped in try-catch for local dev without config)
+// Initialize Firebase
+let auth, db;
 try {
   firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
   console.log("Firebase initialized");
 } catch (e) {
-  console.warn("Firebase initialization failed. Check your config.", e);
+  console.warn("Firebase initialization failed.", e);
 }
 
+// --- App State Management ---
+const App = {
+  user: null,
+  profile: null,
+  root: document.getElementById('app-root'),
+  nav: document.getElementById('main-nav'),
+  loading: document.getElementById('loading-screen'),
+
+  init() {
+    auth.onAuthStateChanged(async (user) => {
+      this.user = user;
+      if (user) {
+        await this.loadProfile();
+      } else {
+        this.renderView('auth');
+      }
+      this.loading.style.display = 'none';
+    });
+  },
+
+  async loadProfile() {
+    try {
+      const doc = await db.collection('profiles').doc(this.user.uid).get();
+      if (doc.exists) {
+        this.profile = doc.data();
+        this.renderView('dashboard');
+        this.nav.style.display = 'block';
+      } else {
+        this.renderView('onboarding');
+        this.nav.style.display = 'none';
+      }
+    } catch (e) {
+      console.error("Error loading profile", e);
+      this.renderView('onboarding');
+    }
+  },
+
+  renderView(view) {
+    this.root.innerHTML = '';
+    const el = document.createElement(`wedding-${view}`);
+    this.root.appendChild(el);
+    
+    // Smooth transition
+    this.root.classList.remove('fade-in');
+    void this.root.offsetWidth; // trigger reflow
+    this.root.classList.add('fade-in');
+  }
+};
+
 // --- Web Components ---
+
+/**
+ * Authentication Component (Login/Signup)
+ */
+class WeddingAuth extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.isLogin = true;
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  toggleMode() {
+    this.isLogin = !this.isLogin;
+    this.render();
+  }
+
+  async handleSubmit(e) {
+    e.preventDefault();
+    const email = this.shadowRoot.getElementById('email').value;
+    const password = this.shadowRoot.getElementById('password').value;
+
+    try {
+      if (this.isLogin) {
+        await auth.signInWithEmailAndPassword(email, password);
+      } else {
+        await auth.createUserWithEmailAndPassword(email, password);
+      }
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  render() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; max-width: 400px; margin: 4rem auto; }
+        .auth-card {
+          background: white;
+          padding: 2.5rem;
+          border-radius: 24px;
+          box-shadow: var(--shadow-lg);
+          border: 1px solid oklch(95% 0.01 340);
+          text-align: center;
+        }
+        h2 { font-family: 'Noto Serif KR', serif; color: oklch(25% 0.02 340); margin-bottom: 1.5rem; }
+        .form-group { text-align: left; margin-bottom: 1rem; }
+        label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; color: oklch(55% 0.02 340); }
+        input {
+          width: 100%;
+          padding: 0.8rem;
+          border: 1px solid oklch(90% 0.02 340);
+          border-radius: 12px;
+          outline: none;
+          transition: border 0.2s;
+        }
+        input:focus { border-color: oklch(85% 0.08 340); }
+        button {
+          width: 100%;
+          padding: 1rem;
+          background: linear-gradient(135deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
+          color: white;
+          border-radius: 12px;
+          font-weight: 700;
+          margin-top: 1.5rem;
+          box-shadow: var(--shadow-glow);
+        }
+        .toggle { margin-top: 1.5rem; font-size: 0.9rem; color: oklch(55% 0.02 340); cursor: pointer; }
+        .toggle span { color: oklch(60% 0.12 340); font-weight: 600; }
+      </style>
+      <div class="auth-card">
+        <h2>${this.isLogin ? '반가워요!' : '환영합니다!'}</h2>
+        <form id="auth-form">
+          <div class="form-group">
+            <label>이메일</label>
+            <input type="email" id="email" required placeholder="example@email.com">
+          </div>
+          <div class="form-group">
+            <label>비밀번호</label>
+            <input type="password" id="password" required placeholder="••••••••">
+          </div>
+          <button type="submit">${this.isLogin ? '로그인' : '회원가입'}</button>
+        </form>
+        <div class="toggle" id="toggle-mode">
+          ${this.isLogin ? '계정이 없으신가요? <span>회원가입</span>' : '이미 계정이 있으신가요? <span>로그인</span>'}
+        </div>
+      </div>
+    `;
+
+    this.shadowRoot.getElementById('auth-form').addEventListener('submit', (e) => this.handleSubmit(e));
+    this.shadowRoot.getElementById('toggle-mode').addEventListener('click', () => this.toggleMode());
+  }
+}
+customElements.define('wedding-auth', WeddingAuth);
+
+/**
+ * Onboarding Component (Profile Setup)
+ */
+class WeddingOnboarding extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  async handleSubmit(e) {
+    e.preventDefault();
+    const data = {
+      groomName: this.shadowRoot.getElementById('groom-name').value,
+      brideName: this.shadowRoot.getElementById('bride-name').value,
+      weddingDate: this.shadowRoot.getElementById('wedding-date').value,
+      weddingVenue: this.shadowRoot.getElementById('wedding-venue').value,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+      await db.collection('profiles').doc(App.user.uid).set(data);
+      App.loadProfile(); // Refresh app state
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  render() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; max-width: 500px; margin: 3rem auto; }
+        .form-card {
+          background: white;
+          padding: 2.5rem;
+          border-radius: 24px;
+          box-shadow: var(--shadow-lg);
+          border: 1px solid oklch(95% 0.01 340);
+        }
+        h2 { font-family: 'Noto Serif KR', serif; text-align: center; color: oklch(25% 0.02 340); margin-bottom: 2rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { margin-bottom: 1.2rem; }
+        label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; color: oklch(55% 0.02 340); }
+        input {
+          width: 100%;
+          padding: 0.8rem;
+          border: 1px solid oklch(90% 0.02 340);
+          border-radius: 12px;
+          outline: none;
+        }
+        button {
+          width: 100%;
+          padding: 1rem;
+          background: linear-gradient(135deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
+          color: white;
+          border-radius: 12px;
+          font-weight: 700;
+          margin-top: 1rem;
+        }
+      </style>
+      <div class="form-card">
+        <h2>우리의 결혼 정보 입력</h2>
+        <form id="onboarding-form">
+          <div class="grid-2">
+            <div class="form-group">
+              <label>신랑 이름</label>
+              <input type="text" id="groom-name" required placeholder="홍길동">
+            </div>
+            <div class="form-group">
+              <label>신부 이름</label>
+              <input type="text" id="bride-name" required placeholder="성춘향">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>예식일</label>
+            <input type="date" id="wedding-date" required>
+          </div>
+          <div class="form-group">
+            <label>식장 이름</label>
+            <input type="text" id="wedding-venue" required placeholder="OO 웨딩홀">
+          </div>
+          <button type="submit">시작하기</button>
+        </form>
+      </div>
+    `;
+    this.shadowRoot.getElementById('onboarding-form').addEventListener('submit', (e) => this.handleSubmit(e));
+  }
+}
+customElements.define('wedding-onboarding', WeddingOnboarding);
 
 /**
  * Navigation Bar Component
@@ -34,8 +275,11 @@ class WeddingNav extends HTMLElement {
 
   connectedCallback() {
     this.render();
-    lucide.createIcons(); // Note: This won't work inside shadow DOM directly without script tag in shadow
-    // We'll use SVG strings for reliability in shadow DOM
+  }
+
+  async handleLogout() {
+    await auth.signOut();
+    location.reload();
   }
 
   render() {
@@ -69,9 +313,10 @@ class WeddingNav extends HTMLElement {
         }
         .nav-links {
           display: flex;
-          gap: 2rem;
+          gap: 1.5rem;
           font-weight: 500;
           color: oklch(25% 0.02 340);
+          align-items: center;
         }
         .nav-links a {
           text-decoration: none;
@@ -79,11 +324,15 @@ class WeddingNav extends HTMLElement {
           font-size: 0.95rem;
           transition: color 0.2s ease;
         }
-        .nav-links a:hover {
-          color: oklch(85% 0.08 340);
+        .logout-btn {
+          font-size: 0.85rem;
+          color: oklch(55% 0.02 340);
+          padding: 0.4rem 0.8rem;
+          border: 1px solid oklch(90% 0.02 340);
+          border-radius: 8px;
         }
         @media (max-width: 768px) {
-          .nav-links { display: none; }
+          .nav-links a:not(.logout-btn) { display: none; }
         }
       </style>
       <nav>
@@ -95,9 +344,11 @@ class WeddingNav extends HTMLElement {
           <a href="#checklist">체크리스트</a>
           <a href="#budget">예산 관리</a>
           <a href="#gallery">영감 갤러리</a>
+          <button class="logout-btn" id="logout-btn">로그아웃</button>
         </div>
       </nav>
     `;
+    this.shadowRoot.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
   }
 }
 customElements.define('wedding-nav', WeddingNav);
@@ -109,7 +360,6 @@ class WeddingDashboard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.weddingDate = localStorage.getItem('weddingDate') || null;
   }
 
   connectedCallback() {
@@ -117,8 +367,8 @@ class WeddingDashboard extends HTMLElement {
   }
 
   calculateDDay() {
-    if (!this.weddingDate) return null;
-    const target = new Date(this.weddingDate);
+    if (!App.profile?.weddingDate) return null;
+    const target = new Date(App.profile.weddingDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = target - today;
@@ -126,16 +376,10 @@ class WeddingDashboard extends HTMLElement {
     return diffDays;
   }
 
-  handleDateChange(e) {
-    const newDate = e.target.value;
-    localStorage.setItem('weddingDate', newDate);
-    this.weddingDate = newDate;
-    this.render();
-  }
-
   render() {
+    const profile = App.profile || {};
     const dDay = this.calculateDDay();
-    const dDayText = dDay === null ? '날짜를 설정해주세요' : (dDay === 0 ? 'D-Day' : `D-${dDay}`);
+    const dDayText = dDay === null ? 'D-Day' : (dDay === 0 ? '오늘이 예식일입니다! 🎉' : `D-${dDay}`);
     
     this.shadowRoot.innerHTML = `
       <style>
@@ -149,20 +393,7 @@ class WeddingDashboard extends HTMLElement {
           box-shadow: 0 10px 30px rgba(0,0,0,0.03);
           border: 1px solid oklch(95% 0.01 340);
           position: relative;
-          overflow: hidden;
         }
-        .hero::before {
-          content: '❤';
-          position: absolute;
-          top: -20px;
-          right: -20px;
-          font-size: 10rem;
-          color: oklch(95% 0.03 340);
-          opacity: 0.5;
-          z-index: 0;
-        }
-        .hero-content { position: relative; z-index: 1; }
-        
         .d-day-badge {
           display: inline-block;
           background: linear-gradient(135deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
@@ -172,139 +403,59 @@ class WeddingDashboard extends HTMLElement {
           font-weight: 700;
           font-size: 1.2rem;
           margin-bottom: 1rem;
-          box-shadow: 0 4px 15px oklch(85% 0.1 340 / 30%);
         }
-        
         h1 {
           font-family: 'Noto Serif KR', serif;
-          font-size: 2.5rem;
+          font-size: 2.2rem;
           color: oklch(25% 0.02 340);
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.8rem;
         }
-        p { color: oklch(55% 0.02 340); font-size: 1.1rem; }
+        .venue { color: oklch(55% 0.02 340); font-size: 1.1rem; }
         
-        .date-picker-container {
-          margin-top: 1.5rem;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        input[type="date"] {
-          border: 1px solid oklch(90% 0.02 340);
-          padding: 0.4rem 0.8rem;
-          border-radius: 8px;
-          font-family: inherit;
-          color: var(--text-main);
-          outline: none;
-        }
-        input[type="date"]:focus {
-          border-color: oklch(85% 0.08 340);
-        }
-
         .grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 1.5rem;
         }
-        
         .card {
           background: white;
           border-radius: 20px;
           padding: 1.5rem;
           box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           border: 1px solid oklch(95% 0.01 340);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
+          transition: all 0.3s;
         }
-        .card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-          border-color: oklch(85% 0.08 340);
-        }
-        
-        .card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-        }
-        .icon {
-          font-size: 1.5rem;
-          background: oklch(95% 0.03 340);
-          width: 48px;
-          height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-        }
-        .title { font-weight: 700; font-size: 1.2rem; }
-        .stat { font-size: 2rem; font-weight: 700; margin: 1rem 0; color: oklch(60% 0.12 340); }
-        .progress-bar {
-          height: 8px;
-          background: oklch(95% 0.01 340);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
-          width: 45%; /* Example */
-        }
+        .title { font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem; display: block; }
+        .stat { font-size: 2rem; font-weight: 700; color: oklch(60% 0.12 340); }
       </style>
       
       <div class="hero">
-        <div class="hero-content">
-          <div class="d-day-badge">${dDayText}</div>
-          <h1>우리의 특별한 날을 위하여</h1>
-          <p>함께 준비하는 설레는 결혼 준비의 시작</p>
-          
-          <div class="date-picker-container">
-            <label style="font-size: 0.9rem; color: oklch(55% 0.02 340);">예식일 설정:</label>
-            <input type="date" value="${this.weddingDate || ''}" id="wedding-date-input">
-          </div>
-        </div>
+        <div class="d-day-badge">${dDayText}</div>
+        <h1>${profile.groomName || '신랑'} ❤️ ${profile.brideName || '신부'}</h1>
+        <p class="venue">${profile.weddingDate} | ${profile.weddingVenue}</p>
       </div>
 
       <div class="grid">
         <div class="card">
-          <div class="card-header">
-            <span class="title">결혼 체크리스트</span>
-            <span class="icon">📝</span>
-          </div>
+          <span class="title">📝 체크리스트</span>
           <div class="stat">12 / 48</div>
-          <p>남은 할 일: 36개</p>
-          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <p style="margin-top: 0.5rem; color: #777;">순조롭게 진행 중입니다!</p>
         </div>
-
         <div class="card">
-          <div class="card-header">
-            <span class="title">예산 관리</span>
-            <span class="icon">💰</span>
-          </div>
+          <span class="title">💰 예산 현황</span>
           <div class="stat">₩ 12,450,000</div>
-          <p>예산 집행률: 62%</p>
-          <div class="progress-bar"><div class="progress-fill" style="width: 62%"></div></div>
+          <p style="margin-top: 0.5rem; color: #777;">총 예산의 62% 집행</p>
         </div>
-
         <div class="card">
-          <div class="card-header">
-            <span class="title">영감 갤러리</span>
-            <span class="icon">✨</span>
-          </div>
-          <div class="stat">85 Items</div>
-          <p>최근 저장: 웨딩 드레스 스타일</p>
-          <div style="display: flex; gap: 4px; margin-top: 1rem;">
-            <div style="width: 40px; height: 40px; border-radius: 4px; background: #eee;"></div>
-            <div style="width: 40px; height: 40px; border-radius: 4px; background: #ddd;"></div>
-            <div style="width: 40px; height: 40px; border-radius: 4px; background: #ccc;"></div>
-          </div>
+          <span class="title">✨ 저장된 영감</span>
+          <div class="stat">85</div>
+          <p style="margin-top: 0.5rem; color: #777;">드레스 24, 메이크업 12...</p>
         </div>
       </div>
     `;
-
-    this.shadowRoot.getElementById('wedding-date-input').addEventListener('change', (e) => this.handleDateChange(e));
   }
 }
 customElements.define('wedding-dashboard', WeddingDashboard);
+
+// Start App
+App.init();
