@@ -102,7 +102,22 @@ class WeddingAuth extends HTMLElement {
       if (this.isLogin) {
         await auth.signInWithEmailAndPassword(email, password);
       } else {
-        await auth.createUserWithEmailAndPassword(email, password);
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Save profile data immediately after signup
+        const profileData = {
+          groomName: this.shadowRoot.getElementById('groom-name').value,
+          groomBirth: this.shadowRoot.getElementById('groom-birth').value,
+          brideName: this.shadowRoot.getElementById('bride-name').value,
+          brideBirth: this.shadowRoot.getElementById('bride-birth').value,
+          weddingDate: this.shadowRoot.getElementById('wedding-date').value,
+          weddingVenue: this.shadowRoot.getElementById('wedding-venue').value,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await db.collection('profiles').doc(user.uid).set(profileData);
+        // App will auto-refresh via onAuthStateChanged
       }
     } catch (error) {
       alert(error.message);
@@ -112,25 +127,26 @@ class WeddingAuth extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; max-width: 400px; margin: 4rem auto; }
+        :host { display: block; max-width: 500px; margin: 3rem auto; }
         .auth-card {
           background: white;
           padding: 2.5rem;
           border-radius: 24px;
           box-shadow: var(--shadow-lg);
           border: 1px solid oklch(95% 0.01 340);
-          text-align: center;
         }
-        h2 { font-family: 'Noto Serif KR', serif; color: oklch(25% 0.02 340); margin-bottom: 1.5rem; }
+        h2 { font-family: 'Noto Serif KR', serif; text-align: center; color: oklch(25% 0.02 340); margin-bottom: 2rem; }
         .form-group { text-align: left; margin-bottom: 1rem; }
-        label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; color: oklch(55% 0.02 340); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .section-title { font-weight: 700; font-size: 0.9rem; color: oklch(60% 0.12 340); margin: 1.5rem 0 0.8rem; border-bottom: 1px solid oklch(95% 0.01 340); padding-bottom: 0.4rem; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 0.3rem; color: oklch(55% 0.02 340); }
         input {
           width: 100%;
-          padding: 0.8rem;
+          padding: 0.75rem;
           border: 1px solid oklch(90% 0.02 340);
           border-radius: 12px;
           outline: none;
-          transition: border 0.2s;
+          font-family: inherit;
         }
         input:focus { border-color: oklch(85% 0.08 340); }
         button {
@@ -140,24 +156,63 @@ class WeddingAuth extends HTMLElement {
           color: white;
           border-radius: 12px;
           font-weight: 700;
-          margin-top: 1.5rem;
-          box-shadow: var(--shadow-glow);
+          margin-top: 2rem;
+          cursor: pointer;
         }
-        .toggle { margin-top: 1.5rem; font-size: 0.9rem; color: oklch(55% 0.02 340); cursor: pointer; }
+        .toggle { margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: oklch(55% 0.02 340); cursor: pointer; }
         .toggle span { color: oklch(60% 0.12 340); font-weight: 600; }
       </style>
       <div class="auth-card">
-        <h2>${this.isLogin ? '반가워요!' : '환영합니다!'}</h2>
+        <h2>${this.isLogin ? '마이 웨딩 북 로그인' : '새로운 시작, 회원가입'}</h2>
         <form id="auth-form">
           <div class="form-group">
-            <label>이메일</label>
+            <label>이메일 주소</label>
             <input type="email" id="email" required placeholder="example@email.com">
           </div>
           <div class="form-group">
             <label>비밀번호</label>
-            <input type="password" id="password" required placeholder="••••••••">
+            <input type="password" id="password" required placeholder="8자 이상 입력해주세요">
           </div>
-          <button type="submit">${this.isLogin ? '로그인' : '회원가입'}</button>
+
+          ${!this.isLogin ? `
+            <div class="section-title">신랑 정보</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>신랑 이름</label>
+                <input type="text" id="groom-name" required>
+              </div>
+              <div class="form-group">
+                <label>생년월일</label>
+                <input type="date" id="groom-birth" required>
+              </div>
+            </div>
+
+            <div class="section-title">신부 정보</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>신부 이름</label>
+                <input type="text" id="bride-name" required>
+              </div>
+              <div class="form-group">
+                <label>생년월일</label>
+                <input type="date" id="bride-birth" required>
+              </div>
+            </div>
+
+            <div class="section-title">예식 정보</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>예식일</label>
+                <input type="date" id="wedding-date" required>
+              </div>
+              <div class="form-group">
+                <label>예식 장소</label>
+                <input type="text" id="wedding-venue" required placeholder="예: OO웨딩홀">
+              </div>
+            </div>
+          ` : ''}
+
+          <button type="submit">${this.isLogin ? '로그인하기' : '회원가입하고 시작하기'}</button>
         </form>
         <div class="toggle" id="toggle-mode">
           ${this.isLogin ? '계정이 없으신가요? <span>회원가입</span>' : '이미 계정이 있으신가요? <span>로그인</span>'}
