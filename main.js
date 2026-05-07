@@ -188,7 +188,9 @@ class WeddingOnboarding extends HTMLElement {
     e.preventDefault();
     const data = {
       groomName: this.shadowRoot.getElementById('groom-name').value,
+      groomBirth: this.shadowRoot.getElementById('groom-birth').value,
       brideName: this.shadowRoot.getElementById('bride-name').value,
+      brideBirth: this.shadowRoot.getElementById('bride-birth').value,
       weddingDate: this.shadowRoot.getElementById('wedding-date').value,
       weddingVenue: this.shadowRoot.getElementById('wedding-venue').value,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -205,7 +207,7 @@ class WeddingOnboarding extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; max-width: 500px; margin: 3rem auto; }
+        :host { display: block; max-width: 550px; margin: 3rem auto; }
         .form-card {
           background: white;
           padding: 2.5rem;
@@ -214,16 +216,19 @@ class WeddingOnboarding extends HTMLElement {
           border: 1px solid oklch(95% 0.01 340);
         }
         h2 { font-family: 'Noto Serif KR', serif; text-align: center; color: oklch(25% 0.02 340); margin-bottom: 2rem; }
+        .section-title { font-weight: 700; font-size: 1rem; color: oklch(60% 0.12 340); margin: 1.5rem 0 0.8rem; border-bottom: 1px solid oklch(95% 0.01 340); padding-bottom: 0.5rem; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        .form-group { margin-bottom: 1.2rem; }
-        label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; color: oklch(55% 0.02 340); }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 0.3rem; color: oklch(55% 0.02 340); }
         input {
           width: 100%;
-          padding: 0.8rem;
+          padding: 0.7rem;
           border: 1px solid oklch(90% 0.02 340);
-          border-radius: 12px;
+          border-radius: 10px;
           outline: none;
+          font-family: inherit;
         }
+        input:focus { border-color: oklch(85% 0.08 340); }
         button {
           width: 100%;
           padding: 1rem;
@@ -231,22 +236,40 @@ class WeddingOnboarding extends HTMLElement {
           color: white;
           border-radius: 12px;
           font-weight: 700;
-          margin-top: 1rem;
+          margin-top: 2rem;
+          border: none;
+          cursor: pointer;
         }
       </style>
       <div class="form-card">
         <h2>우리의 결혼 정보 입력</h2>
         <form id="onboarding-form">
+          
+          <div class="section-title">신랑 정보</div>
           <div class="grid-2">
             <div class="form-group">
               <label>신랑 이름</label>
-              <input type="text" id="groom-name" required placeholder="홍길동">
+              <input type="text" id="groom-name" required placeholder="이름">
             </div>
             <div class="form-group">
-              <label>신부 이름</label>
-              <input type="text" id="bride-name" required placeholder="성춘향">
+              <label>생년월일</label>
+              <input type="date" id="groom-birth" required>
             </div>
           </div>
+
+          <div class="section-title">신부 정보</div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>신부 이름</label>
+              <input type="text" id="bride-name" required placeholder="이름">
+            </div>
+            <div class="form-group">
+              <label>생년월일</label>
+              <input type="date" id="bride-birth" required>
+            </div>
+          </div>
+
+          <div class="section-title">예식 정보</div>
           <div class="form-group">
             <label>예식일</label>
             <input type="date" id="wedding-date" required>
@@ -255,7 +278,8 @@ class WeddingOnboarding extends HTMLElement {
             <label>식장 이름</label>
             <input type="text" id="wedding-venue" required placeholder="OO 웨딩홀">
           </div>
-          <button type="submit">시작하기</button>
+          
+          <button type="submit">마이 웨딩 북 시작하기</button>
         </form>
       </div>
     `;
