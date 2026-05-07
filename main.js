@@ -582,112 +582,182 @@ class WeddingGallery extends HTMLElement {
 customElements.define('wedding-gallery', WeddingGallery);
 
 /**
+ * Checklist Component
+ */
+class WeddingChecklist extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.tasks = [];
+    this.defaultTasks = [
+      { text: '상견례 장소 예약 및 진행', completed: false, category: '준비' },
+      { text: '웨딩홀 투어 및 계약', completed: false, category: '준비' },
+      { text: '스드메(스튜디오, 드레스, 메이크업) 계약', completed: false, category: '예약' },
+      { text: '본식 스냅 및 영상 예약', completed: false, category: '예약' },
+      { text: '신혼여행지 결정 및 항공권 예약', completed: false, category: '예약' },
+      { text: '예물/예단 상의 및 결정', completed: false, category: '물품' },
+      { text: '한복 대여 또는 맞춤', completed: false, category: '물품' },
+      { text: '청첩장 디자인 선택 및 인쇄', completed: false, category: '알림' }
+    ];
+  }
+
+  async connectedCallback() {
+    await this.loadTasks();
+    this.render();
+  }
+
+  async loadTasks() {
+    const snapshot = await db.collection('profiles').doc(App.user.uid).collection('tasks').orderBy('createdAt', 'asc').get();
+    if (snapshot.empty) {
+      // Initialize with default tasks if empty
+      for (const task of this.defaultTasks) {
+        await db.collection('profiles').doc(App.user.uid).collection('tasks').add({
+          ...task,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      await this.loadTasks(); // Reload
+    } else {
+      this.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+  }
+
+  async toggleTask(id, completed) {
+    await db.collection('profiles').doc(App.user.uid).collection('tasks').doc(id).update({
+      completed: !completed
+    });
+    await this.loadTasks();
+    this.render();
+  }
+
+  async addTask(e) {
+    e.preventDefault();
+    const input = this.shadowRoot.getElementById('new-task-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    await db.collection('profiles').doc(App.user.uid).collection('tasks').add({
+      text,
+      completed: false,
+      category: '커스텀',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    input.value = '';
+    await this.loadTasks();
+    this.render();
+  }
+
+  async deleteTask(id) {
+    if (!confirm('이 항목을 삭제할까요?')) return;
+    await db.collection('profiles').doc(App.user.uid).collection('tasks').doc(id).delete();
+    await this.loadTasks();
+    this.render();
+  }
+
+  render() {
+    const completedCount = this.tasks.filter(t => t.completed).length;
+    const progress = Math.round((completedCount / this.tasks.length) * 100) || 0;
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; padding: 2rem 0; }
+        .checklist-container { background: white; padding: 2.5rem; border-radius: 24px; border: 1px solid oklch(95% 0.01 340); box-shadow: var(--shadow-md); }
+        h2 { font-family: 'Noto Serif KR', serif; color: oklch(25% 0.02 340); margin-bottom: 1rem; }
+        
+        .progress-section { margin-bottom: 2rem; }
+        .progress-bar { height: 10px; background: oklch(95% 0.01 340); border-radius: 5px; overflow: hidden; margin: 0.5rem 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, oklch(85% 0.08 340), oklch(75% 0.05 40)); width: ${progress}%; transition: width 0.5s ease; }
+        .progress-text { font-size: 0.9rem; color: oklch(55% 0.02 340); }
+
+        .add-task-form { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+        input { flex: 1; padding: 0.8rem; border: 1px solid oklch(90% 0.02 340); border-radius: 12px; outline: none; }
+        button.add-btn { background: oklch(60% 0.12 340); color: white; border: none; padding: 0 1.5rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
+
+        .task-list { display: flex; flex-direction: column; gap: 0.8rem; }
+        .task-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 12px; background: oklch(98% 0.01 340); border: 1px solid oklch(95% 0.01 340); transition: 0.2s; }
+        .task-item.completed { opacity: 0.6; background: #f9f9f9; }
+        .task-item.completed .task-text { text-decoration: line-through; color: #aaa; }
+        
+        .checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid oklch(85% 0.08 340); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .checkbox.checked { background: oklch(85% 0.08 340); }
+        .checkbox.checked::after { content: '✓'; color: white; font-size: 0.8rem; }
+        
+        .task-text { flex: 1; font-size: 1rem; color: var(--text-main); }
+        .category-badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: white; color: oklch(55% 0.02 340); border: 1px solid oklch(90% 0.02 340); }
+        
+        .delete-btn { color: #ff9999; cursor: pointer; font-size: 0.9rem; padding: 0.5rem; opacity: 0; transition: 0.2s; }
+        .task-item:hover .delete-btn { opacity: 1; }
+      </style>
+      
+      <div class="fade-in">
+        <h2>📝 체크리스트</h2>
+        <div class="checklist-container">
+          <div class="progress-section">
+            <div class="flex justify-between">
+              <span class="progress-text">완료된 항목: ${completedCount} / ${this.tasks.length}</span>
+              <span class="progress-text">${progress}%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+          </div>
+
+          <form class="add-task-form" id="add-task-form">
+            <input type="text" id="new-task-input" placeholder="새로운 할 일을 추가하세요" required>
+            <button type="submit" class="add-btn">추가</button>
+          </form>
+
+          <div class="task-list">
+            ${this.tasks.map(task => `
+              <div class="task-item ${task.completed ? 'completed' : ''}">
+                <div class="checkbox ${task.completed ? 'checked' : ''}" 
+                     onclick="this.getRootNode().host.toggleTask('${task.id}', ${task.completed})">
+                </div>
+                <div class="task-text" onclick="this.getRootNode().host.toggleTask('${task.id}', ${task.completed})">
+                  ${task.text}
+                </div>
+                <span class="category-badge">${task.category}</span>
+                <span class="delete-btn" onclick="this.getRootNode().host.deleteTask('${task.id}')">✕</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.shadowRoot.getElementById('add-task-form')?.addEventListener('submit', (e) => this.addTask(e));
+  }
+}
+customElements.define('wedding-checklist', WeddingChecklist);
+
+/**
  * Dashboard Component
  */
 class WeddingDashboard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+    this.stats = { tasks: { total: 0, completed: 0 } };
   }
 
-  connectedCallback() {
+  async connectedCallback() {
+    await this.loadStats();
     this.render();
   }
 
-  calculateDDay() {
-    if (!App.profile?.weddingDate) return null;
-    const target = new Date(App.profile.weddingDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffTime = target - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  async loadStats() {
+    const tasksSnapshot = await db.collection('profiles').doc(App.user.uid).collection('tasks').get();
+    this.stats.tasks.total = tasksSnapshot.size;
+    this.stats.tasks.completed = tasksSnapshot.docs.filter(d => d.data().completed).length;
   }
 
-  render() {
-    const profile = App.profile || {};
-    const dDay = this.calculateDDay();
-    const dDayText = dDay === null ? 'D-Day' : (dDay === 0 ? '오늘이 예식일입니다! 🎉' : `D-${dDay}`);
-    
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host { display: block; padding: 2rem 0; }
-        .hero {
-          text-align: center;
-          margin-bottom: 3rem;
-          background: white;
-          padding: 3rem 1.5rem;
-          border-radius: 30px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-          border: 1px solid oklch(95% 0.01 340);
-          position: relative;
-        }
-        .d-day-badge {
-          display: inline-block;
-          background: linear-gradient(135deg, oklch(85% 0.08 340), oklch(75% 0.05 40));
-          color: white;
-          padding: 0.5rem 1.5rem;
-          border-radius: 50px;
-          font-weight: 700;
-          font-size: 1.2rem;
-          margin-bottom: 1rem;
-        }
-        h1 {
-          font-family: 'Noto Serif KR', serif;
-          font-size: 2.2rem;
-          color: oklch(25% 0.02 340);
-          margin-bottom: 0.8rem;
-        }
-        .venue { color: oklch(55% 0.02 340); font-size: 1.1rem; }
-        
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 1.5rem;
-        }
-        .card {
-          background: white;
-          border-radius: 20px;
-          padding: 1.5rem;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-          border: 1px solid oklch(95% 0.01 340);
-          transition: all 0.3s;
-          text-decoration: none;
-          color: inherit;
-          display: block;
-        }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-color: var(--primary-color); }
-        .title { font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem; display: block; }
-        .stat { font-size: 2rem; font-weight: 700; color: oklch(60% 0.12 340); }
-      </style>
-      
-      <div class="hero">
-        <div class="d-day-badge">${dDayText}</div>
-        <h1>${profile.groomName || '신랑'} ❤️ ${profile.brideName || '신부'}</h1>
-        <p class="venue">${profile.weddingDate} | ${profile.weddingVenue}</p>
-      </div>
-
+  calculateDDay() {
+...
       <div class="grid">
         <a href="#checklist" class="card">
           <span class="title">📝 체크리스트</span>
-          <div class="stat">12 / 48</div>
-          <p style="margin-top: 0.5rem; color: #777;">순조롭게 진행 중입니다!</p>
+          <div class="stat">${this.stats.tasks.completed} / ${this.stats.tasks.total}</div>
+          <p style="margin-top: 0.5rem; color: #777;">${this.stats.tasks.total > 0 ? '순조롭게 진행 중입니다!' : '항목을 추가해주세요'}</p>
         </a>
-        <a href="#budget" class="card">
-          <span class="title">💰 예산 현황</span>
-          <div class="stat">₩ 12,450,000</div>
-          <p style="margin-top: 0.5rem; color: #777;">총 예산의 62% 집행</p>
-        </a>
-        <a href="#gallery" class="card">
-          <span class="title">✨ 영감 갤러리</span>
-          <div class="stat">P + I</div>
-          <p style="margin-top: 0.5rem; color: #777;">핀터레스트 & 인스타그램 통합</p>
-        </a>
-      </div>
-    `;
-  }
-}
-customElements.define('wedding-dashboard', WeddingDashboard);
+...
 
 // Start App
 App.init();

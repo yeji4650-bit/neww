@@ -24,21 +24,15 @@
 - **Typography**: Elegant Serif fonts for headings, clean Sans-serif for body text.
 - **Visual Effects**: Multi-layered soft shadows, subtle noise textures, and elegant transitions.
 
-## Current Plan: Phase 1 - Authentication & Dashboard
-1. **Foundation & Global Styles**:
-    - [x] Configure `.idx/mcp.json` for Firebase MCP.
-    - [x] Define global CSS variables (colors, spacing, shadows).
-    - [x] Set up basic app layout in `index.html`.
-2. **Firebase Integration**:
-    - [x] Initialize Firebase SDK in `main.js`.
-    - [ ] Set up Firebase Auth and Firestore listeners.
-3. **Web Components - Auth & Onboarding**:
-    - [ ] Implement `<wedding-auth>` (Login/Signup).
-    - [ ] Implement `<wedding-onboarding>` (Profile setup: Names, Date, Venue).
-4. **Web Components - Dashboard**:
-    - [x] Implement `<wedding-nav>` component.
-    - [x] Implement `<wedding-dashboard>` component.
-    - [x] Implement D-day Countdown logic and UI.
-    - [ ] Connect dashboard to Firestore user profile.
-5. **Initial Shells**:
-    - [ ] Create placeholders for Checklist, Budget, and Gallery.
+## Current Plan: Phase 2 - Functional Modules
+1. **Web Components - Checklist**:
+    - [ ] Implement `<wedding-checklist>` component.
+    - [ ] Create Firestore schema for user-specific tasks.
+    - [ ] Add default Korean wedding tasks (Sang-gyeon-rye, SDM, etc.).
+    - [ ] Implement add/toggle/delete functionality.
+2. **Web Components - Budget**:
+    - [ ] Implement `<budget-tracker>` component.
+    - [ ] Create Firestore schema for expenses.
+3. **Polishing**:
+    - [ ] Update Dashboard stats to reflect real Firestore data.
+    - [ ] Add responsive design refinements.
