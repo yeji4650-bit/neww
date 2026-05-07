@@ -403,21 +403,21 @@ class WeddingAuth extends HTMLElement {
         const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pwInput.value);
         const hint = this.shadowRoot.getElementById('pw-hint');
         if (pwInput.value.length >= 8 && hasSpecial) {
-          hint.textContent = '사용 가능한 비밀번호입니다.';
+          hint.textContent = '사용 가능합니다';
           hint.className = 'validation-hint success';
         } else {
-          hint.textContent = '8자 이상, 특수문자 포함이 필요합니다.';
+          hint.textContent = '8자 이상, 특수문자 포함이 필요합니다';
           hint.className = 'validation-hint error';
         }
       });
 
       pwConfirmInput.addEventListener('input', () => {
         const hint = this.shadowRoot.getElementById('pw-confirm-hint');
-        if (pwInput.value === pwConfirmInput.value) {
-          hint.textContent = '비밀번호가 일치합니다.';
+        if (pwInput.value && pwInput.value === pwConfirmInput.value) {
+          hint.textContent = '일치합니다';
           hint.className = 'validation-hint success';
         } else {
-          hint.textContent = '비밀번호가 일치하지 않습니다.';
+          hint.textContent = '비밀번호가 일치하지 않습니다';
           hint.className = 'validation-hint error';
         }
       });
