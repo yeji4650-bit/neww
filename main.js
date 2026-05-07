@@ -30,21 +30,32 @@ const App = {
   root: document.getElementById('app-root'),
   nav: document.getElementById('main-nav'),
   loading: document.getElementById('loading-screen'),
+  pinterestBoard: 'https://www.pinterest.com/pinterest/official-news-and-updates/', // Default placeholder
 
   init() {
     auth.onAuthStateChanged(async (user) => {
       this.user = user;
       if (user) {
         await this.loadProfile();
+        // Handle initial hash routing
+        this.handleRouting();
       } else {
         this.renderView('auth');
       }
       this.loading.style.display = 'none';
     });
+
+    window.addEventListener('hashchange', () => this.handleRouting());
+  },
+
+  handleRouting() {
+    if (!this.user || !this.profile) return;
+    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    this.renderView(hash);
   },
 
   async loadProfile() {
-    try {
+...
       const doc = await db.collection('profiles').doc(this.user.uid).get();
       if (doc.exists) {
         this.profile = doc.data();
@@ -454,6 +465,123 @@ class WeddingNav extends HTMLElement {
 customElements.define('wedding-nav', WeddingNav);
 
 /**
+ * Gallery Component (Pinterest + Instagram)
+ */
+class WeddingGallery extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.instagramLinks = [];
+  }
+
+  async connectedCallback() {
+    await this.loadInstagramLinks();
+    this.render();
+  }
+
+  async loadInstagramLinks() {
+    const snapshot = await db.collection('profiles').doc(App.user.uid).collection('gallery').orderBy('createdAt', 'desc').get();
+    this.instagramLinks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async addInstagramLink(e) {
+    e.preventDefault();
+    const url = this.shadowRoot.getElementById('insta-url').value;
+    const category = this.shadowRoot.getElementById('insta-category').value;
+    
+    if (!url.includes('instagram.com')) {
+      alert('올바른 인스타그램 주소를 입력해주세요.');
+      return;
+    }
+
+    try {
+      await db.collection('profiles').doc(App.user.uid).collection('gallery').add({
+        url,
+        category,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      this.shadowRoot.getElementById('insta-url').value = '';
+      await this.loadInstagramLinks();
+      this.render();
+    } catch (e) {
+      alert('저장에 실패했습니다.');
+    }
+  }
+
+  render() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; padding: 2rem 0; }
+        h2 { font-family: 'Noto Serif KR', serif; color: oklch(25% 0.02 340); margin-bottom: 2rem; }
+        .section { background: white; padding: 2rem; border-radius: 24px; border: 1px solid oklch(95% 0.01 340); margin-bottom: 2rem; }
+        .section-title { font-weight: 700; font-size: 1.2rem; color: oklch(60% 0.12 340); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .insta-form { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+        input, select { padding: 0.7rem; border: 1px solid oklch(90% 0.02 340); border-radius: 10px; outline: none; }
+        input { flex: 1; }
+        button.add-btn { background: var(--accent-color); color: white; border: none; padding: 0 1.5rem; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .insta-card { background: oklch(98% 0.01 340); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid oklch(95% 0.01 340); }
+        .insta-card a { color: oklch(60% 0.12 340); font-weight: 600; font-size: 0.9rem; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 50px; background: white; font-size: 0.75rem; margin-bottom: 0.5rem; border: 1px solid oklch(90% 0.02 340); }
+
+        .pin-container { display: flex; justify-content: center; overflow: hidden; border-radius: 16px; }
+      </style>
+      
+      <div class="fade-in">
+        <h2>✨ 우리의 웨딩 영감</h2>
+
+        <div class="section">
+          <div class="section-title">📌 핀터레스트 보드</div>
+          <p style="font-size: 0.9rem; color: #777; margin-bottom: 1.5rem;">핀터레스트 앱에서 저장한 이미지가 실시간으로 업데이트됩니다.</p>
+          <div class="pin-container">
+            <!-- Pinterest Board Widget -->
+            <a data-pin-do="embedBoard" 
+               data-pin-board-width="900" 
+               data-pin-scale-height="400" 
+               data-pin-scale-width="150" 
+               href="${App.pinterestBoard}">
+            </a>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📸 인스타그램 스크랩</div>
+          <form class="insta-form" id="insta-form">
+            <select id="insta-category">
+              <option value="드레스">드레스</option>
+              <option value="메이크업">메이크업</option>
+              <option value="네일">네일</option>
+              <option value="기타">기타</option>
+            </select>
+            <input type="text" id="insta-url" placeholder="인스타그램 게시물 링크를 붙여넣으세요" required>
+            <button type="submit" class="add-btn">저장</button>
+          </form>
+
+          <div class="gallery-grid">
+            ${this.instagramLinks.map(link => `
+              <div class="insta-card">
+                <span class="badge">${link.category}</span><br>
+                <a href="${link.url}" target="_blank">게시물 보기 ↗</a>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.shadowRoot.getElementById('insta-form')?.addEventListener('submit', (e) => this.addInstagramLink(e));
+    
+    // Re-initialize Pinterest widgets
+    if (window.PinUtils) {
+      window.PinUtils.build();
+    }
+  }
+}
+customElements.define('wedding-gallery', WeddingGallery);
+
+/**
  * Dashboard Component
  */
 class WeddingDashboard extends HTMLElement {
@@ -524,7 +652,11 @@ class WeddingDashboard extends HTMLElement {
           box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           border: 1px solid oklch(95% 0.01 340);
           transition: all 0.3s;
+          text-decoration: none;
+          color: inherit;
+          display: block;
         }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-color: var(--primary-color); }
         .title { font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem; display: block; }
         .stat { font-size: 2rem; font-weight: 700; color: oklch(60% 0.12 340); }
       </style>
@@ -536,21 +668,21 @@ class WeddingDashboard extends HTMLElement {
       </div>
 
       <div class="grid">
-        <div class="card">
+        <a href="#checklist" class="card">
           <span class="title">📝 체크리스트</span>
           <div class="stat">12 / 48</div>
           <p style="margin-top: 0.5rem; color: #777;">순조롭게 진행 중입니다!</p>
-        </div>
-        <div class="card">
+        </a>
+        <a href="#budget" class="card">
           <span class="title">💰 예산 현황</span>
           <div class="stat">₩ 12,450,000</div>
           <p style="margin-top: 0.5rem; color: #777;">총 예산의 62% 집행</p>
-        </div>
-        <div class="card">
-          <span class="title">✨ 저장된 영감</span>
-          <div class="stat">85</div>
-          <p style="margin-top: 0.5rem; color: #777;">드레스 24, 메이크업 12...</p>
-        </div>
+        </a>
+        <a href="#gallery" class="card">
+          <span class="title">✨ 영감 갤러리</span>
+          <div class="stat">P + I</div>
+          <p style="margin-top: 0.5rem; color: #777;">핀터레스트 & 인스타그램 통합</p>
+        </a>
       </div>
     `;
   }
