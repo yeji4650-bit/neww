@@ -12,6 +12,7 @@
 
 ### Features
 - **Modern Dashboard**: Visual overview of wedding progress and quick access to modules.
+- **D-day Countdown**: Real-time tracking of days remaining until the wedding.
 - **Wedding Checklist**: Customizable list of tasks with status tracking.
 - **Budget Tracker**: Expense management with category breakdowns and budget monitoring.
 - **Inspiration Gallery**: Curated collections for wedding nails, hair, makeup, and dress styles.
@@ -24,14 +25,15 @@
 ## Current Plan: Phase 1 - Foundation & Dashboard
 1. **Foundation & Global Styles**:
     - [x] Configure `.idx/mcp.json` for Firebase MCP.
-    - [ ] Define global CSS variables (colors, spacing, shadows).
-    - [ ] Set up basic app layout in `index.html`.
+    - [x] Define global CSS variables (colors, spacing, shadows).
+    - [x] Set up basic app layout in `index.html`.
 2. **Firebase Integration**:
-    - [ ] Initialize Firebase SDK in `main.js`.
+    - [x] Initialize Firebase SDK in `main.js`.
     - [ ] Create basic Firestore schema for tasks and expenses.
 3. **Web Components - Dashboard**:
-    - [ ] Implement `<wedding-nav>` component.
-    - [ ] Implement `<wedding-dashboard>` component.
+    - [x] Implement `<wedding-nav>` component.
+    - [x] Implement `<wedding-dashboard>` component.
+    - [x] Implement D-day Countdown logic and UI.
     - [ ] Create summary cards for Checklist and Budget.
 4. **Initial Shells**:
     - [ ] Create placeholders for Checklist, Budget, and Gallery.
